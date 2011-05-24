@@ -28,6 +28,15 @@ class SignalTests(unittest.TestCase):
                 return self.name
 
             @classmethod
+            def pre_init(cls, instance, **kwargs):
+                signal_output.append('pre_init signal, %s' % cls.__name__)
+                signal_output.append(str(kwargs['values']))
+
+            @classmethod
+            def post_init(cls, instance, **kwargs):
+                signal_output.append('post_init signal, %s' % instance)
+
+            @classmethod
             def pre_save(cls, instance, **kwargs):
                 signal_output.append('pre_save signal, %s' % instance)
 
@@ -51,12 +60,18 @@ class SignalTests(unittest.TestCase):
         self.Author = Author
 
         # Save up the number of connected signals so that we can check at the end
-        # that all the signals we register get properly unregistered (#9989)
-        self.pre_signals = (len(signals.pre_save.receivers),
-                       len(signals.post_save.receivers),
-                       len(signals.pre_delete.receivers),
-                       len(signals.post_delete.receivers))
+        # that all the signals we register get properly unregistered
+        self.pre_signals = (
+            len(signals.pre_init.receivers),
+            len(signals.post_init.receivers),
+            len(signals.pre_save.receivers),
+            len(signals.post_save.receivers),
+            len(signals.pre_delete.receivers),
+            len(signals.post_delete.receivers)
+        )
 
+        signals.pre_init.connect(Author.pre_init, sender=Author)
+        signals.post_init.connect(Author.post_init, sender=Author)
         signals.pre_save.connect(Author.pre_save, sender=Author)
         signals.post_save.connect(Author.post_save, sender=Author)
         signals.pre_delete.connect(Author.pre_delete, sender=Author)
@@ -67,17 +82,32 @@ class SignalTests(unittest.TestCase):
         signals.pre_delete.disconnect(self.Author.pre_delete, sender=self.Author)
         signals.post_save.disconnect(self.Author.post_save, sender=self.Author)
         signals.pre_save.disconnect(self.Author.pre_save, sender=self.Author)
+        signals.post_init.disconnect(self.Author.post_init, sender=self.Author)
+        signals.pre_init.disconnect(self.Author.pre_init, sender=self.Author)
 
         # Check that all our signals got disconnected properly.
-        post_signals = (len(signals.pre_save.receivers),
-                        len(signals.post_save.receivers),
-                        len(signals.pre_delete.receivers),
-                        len(signals.post_delete.receivers))
+        post_signals = (
+            len(signals.pre_init.receivers),
+            len(signals.post_init.receivers),
+            len(signals.pre_save.receivers),
+            len(signals.post_save.receivers),
+            len(signals.pre_delete.receivers),
+            len(signals.post_delete.receivers)
+        )
 
         self.assertEqual(self.pre_signals, post_signals)
 
     def test_model_signals(self):
         """ Model saves should throw some signals. """
+
+        def create_author():
+            a1 = self.Author(name='Bill Shakespeare')
+
+        self.assertEqual(self.get_signal_output(create_author), [
+            "pre_init signal, Author",
+            "{'name': 'Bill Shakespeare'}",
+            "post_init signal, Bill Shakespeare",
+        ])
 
         a1 = self.Author(name='Bill Shakespeare')
         self.assertEqual(self.get_signal_output(a1.save), [
