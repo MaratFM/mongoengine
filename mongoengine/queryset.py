@@ -717,15 +717,15 @@ class QuerySet(object):
             return_one = True
             docs = [docs]
 
-        raw = [doc.to_mongo() for doc in docs if isinstance(doc, self._document)]
-        if len(raw) != len(docs):
-            msg = "Some documents inserted aren't instances of %s" % str(self._document)
-            raise OperationError(msg)
-
-        raw = [doc.to_mongo() for doc in docs if doc.pk == None]
-        if len(raw) != len(docs):
-            msg = "Some documents have ObjectIds use doc.update() instead"
-            raise OperationError(msg)
+        raw = []
+        for doc in docs:
+            if not isinstance(doc, self._document):
+                msg = "Some documents inserted aren't instances of %s" % str(self._document)
+                raise OperationError(msg)
+            if doc.pk:
+                msg = "Some documents have ObjectIds use doc.update() instead"
+                raise OperationError(msg)
+            raw.append(doc.to_mongo())
 
         ids = self._collection.insert(raw)
 
